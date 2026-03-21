@@ -152,14 +152,28 @@ def list_dialogs(limit: int = 30, filter_type: Optional[str] = None) -> list[dic
 
 # ── Messages ──────────────────────────────────────────────────────────────────
 
+async def _resolve_entity(client, chat: str | int):
+    """Resolve a chat to a Telethon entity, handling numeric IDs via dialog cache."""
+    # Convert numeric strings to int
+    if isinstance(chat, str) and chat.lstrip("-").isdigit():
+        chat = int(chat)
+    try:
+        return await client.get_input_entity(chat)
+    except ValueError:
+        # Entity not in cache — populate cache by fetching dialogs then retry
+        await client.get_dialogs()
+        return await client.get_input_entity(chat)
+
+
 async def _get_messages(chat: str | int, limit: int = 20, search: Optional[str] = None) -> list[dict]:
     client = _get_client()
     results = []
     async with client:
+        entity = await _resolve_entity(client, chat)
         kwargs = {"limit": limit}
         if search:
             kwargs["search"] = search
-        async for msg in client.iter_messages(chat, **kwargs):
+        async for msg in client.iter_messages(entity, **kwargs):
             sender = ""
             if msg.sender:
                 sender = getattr(msg.sender, "username", None) or getattr(msg.sender, "first_name", "?") or "?"
@@ -183,7 +197,8 @@ def get_messages(chat: str | int, limit: int = 20, search: Optional[str] = None)
 async def _send_message(chat: str | int, text: str, reply_to: Optional[int] = None) -> dict:
     client = _get_client()
     async with client:
-        msg = await client.send_message(chat, text, reply_to=reply_to, parse_mode="html")
+        entity = await _resolve_entity(client, chat)
+        msg = await client.send_message(entity, text, reply_to=reply_to, parse_mode="html")
         return {"id": msg.id, "date": msg.date.strftime("%Y-%m-%d %H:%M")}
 
 
@@ -196,7 +211,8 @@ def send_message(chat: str | int, text: str, reply_to: Optional[int] = None) -> 
 async def _delete_message(chat: str | int, message_id: int) -> None:
     client = _get_client()
     async with client:
-        await client.delete_messages(chat, [message_id])
+        entity = await _resolve_entity(client, chat)
+        await client.delete_messages(entity, [message_id])
 
 
 def delete_message(chat: str | int, message_id: int) -> None:
@@ -206,7 +222,8 @@ def delete_message(chat: str | int, message_id: int) -> None:
 async def _edit_message(chat: str | int, message_id: int, text: str) -> None:
     client = _get_client()
     async with client:
-        await client.edit_message(chat, message_id, text, parse_mode="html")
+        entity = await _resolve_entity(client, chat)
+        await client.edit_message(entity, message_id, text, parse_mode="html")
 
 
 def edit_message(chat: str | int, message_id: int, text: str) -> None:
