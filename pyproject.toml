@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "tg"
-version = "0.1.0"
+version = "0.2.0"
 description = "Telegram CLI — like gh for Telegram. Manages bots and conversations."
 readme = "README.md"
 requires-python = ">=3.12"

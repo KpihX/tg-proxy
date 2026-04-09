@@ -250,3 +250,54 @@ async def _list_contacts() -> list[dict]:
 
 def list_contacts() -> list[dict]:
     return run(_list_contacts())
+
+# ── Extension: Download / Media / Read ────────────────────────────────────────
+
+async def _download_media(chat: str | int, message_id: int, out: str) -> str:
+    client = _get_client()
+    async with client:
+        entity = await _resolve_entity(client, chat)
+        msg = await client.get_messages(entity, ids=message_id)
+        if not msg or not msg.media:
+            raise RuntimeError(f"Message {message_id} in {chat} contains no media.")
+        path = await client.download_media(msg, file=out)
+        if not path:
+            raise RuntimeError("Download failed or aborted.")
+        return path
+
+def download_media(chat: str | int, message_id: int, out: str) -> str:
+    return run(_download_media(chat, message_id, out))
+
+
+async def _send_file(chat: str | int, file_path: str, caption: str | None = None, reply_to: int | None = None) -> dict:
+    client = _get_client()
+    async with client:
+        entity = await _resolve_entity(client, chat)
+        msg = await client.send_file(entity, file_path, caption=caption, reply_to=reply_to)
+        return _format_message(msg)
+
+def send_file(chat: str | int, file_path: str, caption: str | None = None, reply_to: int | None = None) -> dict:
+    return run(_send_file(chat, file_path, caption, reply_to))
+
+
+async def _mark_read(chat: str | int, max_id: int | None = None) -> None:
+    client = _get_client()
+    async with client:
+        entity = await _resolve_entity(client, chat)
+        await client.send_read_acknowledge(entity, max_id=max_id)
+
+def mark_read(chat: str | int, max_id: int | None = None) -> None:
+    run(_mark_read(chat, max_id))
+
+
+async def _action(chat: str | int, action: str) -> None:
+    client = _get_client()
+    async with client:
+        entity = await _resolve_entity(client, chat)
+        async with client.action(entity, action):
+            import asyncio
+            await asyncio.sleep(0.5)
+
+def send_action(chat: str | int, action: str) -> None:
+    run(_action(chat, action))
+

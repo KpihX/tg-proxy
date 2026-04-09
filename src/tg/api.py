@@ -100,3 +100,16 @@ def get_my_commands(token: str) -> list[dict]:
 
 def set_my_commands(token: str, commands: list[dict]) -> dict:
     return _call(token, "setMyCommands", commands=commands)
+def get_file(token: str, file_id: str) -> dict:
+    return _call(token, "getFile", file_id=file_id)
+
+def download_file(token: str, file_path: str, dest_path: str) -> None:
+    url = f"https://api.telegram.org/file/bot{token}/{file_path}"
+    with httpx.stream("GET", url, timeout=TIMEOUT) as resp:
+        resp.raise_for_status()
+        with open(dest_path, "wb") as f:
+            for chunk in resp.iter_bytes():
+                f.write(chunk)
+
+def send_chat_action(token: str, chat_id: str | int, action: str) -> dict:
+    return _call(token, "sendChatAction", chat_id=chat_id, action=action)

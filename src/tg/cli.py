@@ -140,6 +140,7 @@ def send(
 def updates(
     bot: BotOpt = None,
     limit: Annotated[int, typer.Option("--limit", "-n", help="Max updates to fetch.")] = 20,
+    download_media: Annotated[Optional[str], typer.Option("--download-media", help="Directory to download media files automatically.")] = None,
 ) -> None:
     """Fetch recent bot updates (messages received by the bot)."""
     try:
@@ -150,6 +151,27 @@ def updates(
     try:
         upds = api.get_updates(bot_cfg.token, limit=limit)
         display.print_updates(bot_cfg.alias, upds)
+        if download_media and upds:
+            from pathlib import Path
+            import os
+            out_dir = Path(download_media)
+            out_dir.mkdir(parents=True, exist_ok=True)
+            for raw_upd in upds:
+                msg = raw_upd.get("message")
+                if msg:
+                    file_id = None
+                    if "photo" in msg:
+                        file_id = msg["photo"][-1]["file_id"]
+                    elif "document" in msg:
+                        file_id = msg["document"]["file_id"]
+                    
+                    if file_id:
+                        f_info = api.get_file(bot_cfg.token, file_id)
+                        if "file_path" in f_info:
+                            ext = os.path.splitext(f_info["file_path"])[1] or ".jpg"
+                            dest = out_dir / f"{bot_cfg.alias}_{msg['message_id']}{ext}"
+                            api.download_file(bot_cfg.token, f_info["file_path"], str(dest))
+                            display.success(f"Downloaded media to {dest}")
     except Exception as e:
         _abort(str(e))
 
@@ -369,14 +391,21 @@ def user_read(
 @user_app.command("send")
 def user_send(
     chat: Annotated[str, typer.Argument(help="Chat ID, @username, or phone number.")],
-    message: Annotated[str, typer.Argument(help="Message text (HTML supported).")],
+    message: Annotated[Optional[str], typer.Argument(help="Message text/caption (HTML supported).")] = None,
+    file: Annotated[Optional[str], typer.Option("--file", "-f", help="File to send.")] = None,
     reply_to: Annotated[Optional[int], typer.Option("--reply-to", help="Reply to message ID.")] = None,
 ) -> None:
     """Send a message as yourself (user account)."""
     from tg import user as u
     try:
-        result = u.send_message(chat, message, reply_to=reply_to)
-        display.success(f"Sent to {chat} (msg_id: {result['id']}) at {result['date']}")
+        if file:
+            result = u.send_file(chat, file_path=file, caption=message, reply_to=reply_to)
+            display.success(f"File sent to {chat} (msg_id: {result['id']})")
+        else:
+            if not message:
+                _abort("Missing message text.")
+            result = u.send_message(chat, message, reply_to=reply_to)
+            display.success(f"Sent to {chat} (msg_id: {result['id']}) at {result['date']}")
     except RuntimeError as e:
         _abort(str(e))
 
@@ -443,3 +472,130 @@ def version() -> None:
 
 if __name__ == "__main__":
     app()
+
+@user_app.command("download")
+def user_download(
+    chat: Annotated[str, typer.Argument(help="Chat ID, @username, or phone number.")],
+    message_id: Annotated[int, typer.Argument(help="Message ID.")],
+    out: Annotated[str, typer.Option("--out", "-o", help="Output file path or directory.")]
+) -> None:
+    """Download media from a specific message."""
+    from tg import user as u
+    try:
+        path = u.download_media(chat, message_id, out)
+        display.success(f"Downloaded to {path}")
+    except RuntimeError as e:
+        import sys; sys.exit(f"Error: {e}")
+
+@user_app.command("mark-read")
+def user_mark_read(
+    chat: Annotated[str, typer.Argument(help="Chat ID, @username, or phone number.")],
+    max_id: Annotated[Optional[int], typer.Option("--max-id", help="Message ID up to which to mark as read.")] = None
+) -> None:
+    """Mark messages in a chat as read to clear phone notifications."""
+    from tg import user as u
+    try:
+        u.mark_read(chat, max_id)
+        display.success(f"Marked {chat} as read{(f' up to {max_id}' if max_id else '')}")
+    except RuntimeError as e:
+        import sys; sys.exit(f"Error: {e}")
+
+@user_app.command("status")
+def user_action(
+    chat: Annotated[str, typer.Argument(help="Chat ID, @username, or phone number.")],
+    action: Annotated[str, typer.Argument(help="Action type (typing, document, photo, etc).")] = "typing"
+) -> None:
+    """Send a chat action (typing, etc)."""
+    from tg import user as u
+    try:
+        u.send_action(chat, action)
+    except RuntimeError as e:
+        import sys; sys.exit(f"Error: {e}")
+
+@user_app.command("cleanup")
+def user_cleanup(
+    path: Annotated[str, typer.Option("--path", "-p", help="Directory to clean up.")] = "~/Downloads/tg/",
+    force: Annotated[bool, typer.Option("--force", "-f", help="Force without confirmation")] = False
+) -> None:
+    """Clean up downloaded media files."""
+    import os, shutil
+    from pathlib import Path
+    import typer
+    
+    target = Path(path).expanduser()
+    if not target.exists():
+        display.warning(f"Path does not exist: {target}")
+        return
+    if not target.is_dir():
+        import sys; sys.exit(f"Error: {target} is not a directory.")
+        
+    if not force:
+        confirm = typer.confirm(f"Are you sure you want to wipe contents of {target}?")
+        if not confirm:
+            display.info("Aborted.")
+            return
+
+    for item in target.iterdir():
+        try:
+            if item.is_file() or item.is_symlink():
+                item.unlink()
+            elif item.is_dir():
+                shutil.rmtree(item)
+        except Exception as e:
+            display.error(f"Failed to delete {item}. Reason: {e}")
+            
+    display.success(f"Cleaned up media directory: {target}")
+
+@user_app.command("cleanup")
+def user_cleanup(
+    path: Annotated[str, typer.Option("--path", "-p", help="Directory to clean up.")] = "~/Downloads/tg/",
+    force: Annotated[bool, typer.Option("--force", "-f", help="Force without confirmation")] = False
+) -> None:
+    """Clean up downloaded media files."""
+    import os, shutil
+    from pathlib import Path
+    import typer
+    
+    target = Path(path).expanduser()
+    if not target.exists():
+        display.warning(f"Path does not exist: {target}")
+        return
+    if not target.is_dir():
+        import sys; sys.exit(f"Error: {target} is not a directory.")
+        
+    if not force:
+        confirm = typer.confirm(f"Are you sure you want to wipe contents of {target}?")
+        if not confirm:
+            display.info("Aborted.")
+            return
+
+    for item in target.iterdir():
+        try:
+            if item.is_file() or item.is_symlink():
+                item.unlink()
+            elif item.is_dir():
+                shutil.rmtree(item)
+        except Exception as e:
+            display.error(f"Failed to delete {item}. Reason: {e}")
+            
+    display.success(f"Cleaned up media directory: {target}")
+
+@app.command("bot-action")
+def bot_action(
+    bot: BotOpt = None,
+    to: Annotated[Optional[str], typer.Option("--to", "-t", help="Recipient Chat ID.")] = None,
+    action: Annotated[str, typer.Argument(help="Action type (typing, upload_document, etc).")] = "typing"
+) -> None:
+    """Send a chat action as a bot (typing, uploading)."""
+    try:
+        bot_cfg = get_bot(bot)
+        cfg = load_config()
+        chat_id = to or bot_cfg.default_chat or cfg.default_chat
+        
+        if not chat_id:
+            _abort("No chat ID. Use --to CHAT_ID or set default_chat.")
+            
+        api.send_chat_action(bot_cfg.token, chat_id, action)
+        display.success(f"[{bot_cfg.alias}] Sent action '{action}' to {chat_id}")
+    except Exception as e:
+        import sys; sys.exit(f"Error: {e}")

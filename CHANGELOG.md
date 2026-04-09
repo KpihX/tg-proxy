@@ -1,5 +1,16 @@
 # CHANGELOG — tg
 
+## [0.2.0] — 2026-04-09
+
+### Added
+- [x] **Media & File Support** — download and send files via user or bot API
+  - [x] `tg user download` — download media from a chat natively
+  - [x] `tg user send --file` — attach a local file to messages
+  - [x] `tg updates --download-media` — fetch bot updates and auto-download attachments
+- [x] **Read & Actions** — interact with read receipts and chat actions
+  - [x] `tg user mark-read` — mark all messages or individual chats as read
+  - [x] `tg user status / tg bot-action` — broadcast typing/uploading states
+
 ## [0.1.0] — 2026-03-22
 
 ### Added
