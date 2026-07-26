@@ -124,6 +124,35 @@ class BotPhotoPayload(BaseModel):
     )
 
 
+class RawPayload(BaseModel):
+    method: str = Field(
+        ...,
+        description="Method name: 'messages.sendMessage' (mtproto), 'sendMessage' (botapi), '/command' (bf)",
+    )
+    params: dict = Field(default_factory=dict, description="Parameters for the method")
+    protocol: str = Field(
+        "mtproto", description="Protocol: 'mtproto', 'botapi', or 'bf'"
+    )
+    bot: str | None = Field(None, description="Bot @username (required for 'botapi')")
+    upload_files: list[str] | None = Field(
+        None,
+        description="Files to upload (botapi only — switches to multipart/form-data)",
+    )
+    steps: list[str] | None = Field(
+        None,
+        description="Multi-step BotFather conversation (bf only): sequential replies",
+    )
+    photo: str | None = Field(
+        None, description="Photo file to send in BotFather step (bf only)"
+    )
+    type_hints: dict | None = Field(
+        None,
+        description="Type annotations for mtproto params, e.g. "
+        '{"user_id": "InputUser", "chat_id": "InputChannel"}. '
+        "Wraps the value in the corresponding Telethon TLObject.",
+    )
+
+
 # ─── Updates models ───
 
 

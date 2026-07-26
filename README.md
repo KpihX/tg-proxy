@@ -18,7 +18,7 @@ tg-proxy do <action> [payload|file]  # RPC actions (JSON default, table via --fo
 | `setup` | First-time auth via HITL web form (creates `~/.config/tg-proxy/.env`) |
 | `status` | Your Telegram identity as JSON |
 
-### `tg-proxy do` (RPC) — 22 commands
+### `tg-proxy do` (RPC) — 23 commands
 
 | Action | Description | HITL | Enriched |
 |--------|-------------|:----:|:--------:|
@@ -45,6 +45,9 @@ tg-proxy do <action> [payload|file]  # RPC actions (JSON default, table via --fo
 | `webhook-get` | Show webhook configuration | ❌ | — |
 | `webhook-set` | Set webhook URL | ❌ | — |
 | `webhook-del` | Delete webhook | ❌ | — |
+| **`raw`** | **Generic Telegram gateway (mtproto/botapi/bf)** | ✅ | **`type_hints`** ✅ |
+
+**`raw`** — execute ANY Telegram API call via one of three protocols (`"mtproto"`, `"botapi"`, `"bf"`). Supports `type_hints` to map string params to Telethon TLObject types for typed MTProto calls. Every execution autosaves to `/tmp/tg-proxy-autosave/{action}_{timestamp}.json`.
 
 ### Enriched features
 
@@ -60,6 +63,59 @@ tg-proxy do <action> [payload|file]  # RPC actions (JSON default, table via --fo
 - Rate limit detection with graceful error handling
 - `/setuserpic` flow proven (S25 got Ubuntu's photo via BotFather)
 - 13/13 bot tokens now in `.env`
+
+## Protocol Categories & `do raw` Equivalent
+
+Every non-`raw` `do` command can be expressed as a `do raw` call.
+This section groups commands by the three Telegram protocols.
+
+### MTProto (TL Functions via Telethon)
+
+Protocol value: `"mtproto"` — calls `telethon.tl.functions.*`
+Reference: https://docs.telethon.dev/en/stable/modules/client.html
+
+| `do` command | `do raw` equivalent |
+|-------------|---------------------|
+| `bot-list` | `do raw '{"protocol":"mtproto","method":"bots.getAdminedBots"}'` |
+| `bot-info` | `do raw '{"protocol":"mtproto","method":"bots.getBotInfo","params":{"bot":"@bot"}}'` |
+| `chat-list` | `do raw '{"protocol":"mtproto","method":"messages.getDialogs","params":{"limit":30}}'` |
+| `chat-read` | `do raw '{"protocol":"mtproto","method":"messages.getHistory","params":{"peer":93372553,"limit":5}}'` |
+| `chat-send` | `do raw '{"protocol":"mtproto","method":"messages.sendMessage","params":{"peer":"@user","message":"Hi"}}'` |
+| `chat-download` | `do raw '{"protocol":"mtproto","method":"messages.getMessages","params":{"id":[42]}}'` |
+| `chat-delete` | `do raw '{"protocol":"mtproto","method":"messages.deleteHistory","params":{"peer":"@chat","revoke":true}}'` |
+| `chat-delete-messages` | `do raw '{"protocol":"mtproto","method":"messages.deleteMessages","params":{"id":[42,43]}}'` |
+| `folder-list` | `do raw '{"protocol":"mtproto","method":"messages.getDialogFilters"}'` |
+| `folder-set` | `do raw '{"protocol":"mtproto","method":"messages.updateDialogFilter","params":{...}}'` |
+| `folder-delete` | `do raw '{"protocol":"mtproto","method":"messages.updateDialogFilter","params":{"id":12}}'` |
+| `chat-move` | *(combination of getDialogFilters + updateDialogFilter)* |
+| `admin status` | `do raw '{"protocol":"mtproto","method":"users.getFullUser","params":{"id":"me"}}'` |
+| `bot-photo` | `do raw '{"protocol":"mtproto","method":"photos.getUserPhotos","params":{"user_id":"@bot"}}'` |
+
+### Bot HTTP API
+
+Protocol value: `"botapi"` — calls `POST https://api.telegram.org/bot{token}/{method}`
+Reference: https://core.telegram.org/bots/api
+
+| `do` command | `do raw` equivalent |
+|-------------|---------------------|
+| `bot-send` | `do raw '{"protocol":"botapi","bot":"@my_bot","method":"sendMessage","params":{"chat_id":93372553,"text":"Hi"}}'` |
+| `bot-send-file` | `do raw '{"protocol":"botapi","bot":"@my_bot","method":"sendDocument","params":{"chat_id":93372553,"document":"/path"}}'` |
+| `updates` | `do raw '{"protocol":"botapi","bot":"@my_bot","method":"getUpdates","params":{}}'` |
+| `webhook-get` | `do raw '{"protocol":"botapi","bot":"@my_bot","method":"getWebhookInfo","params":{}}'` |
+| `webhook-set` | `do raw '{"protocol":"botapi","bot":"@my_bot","method":"setWebhook","params":{"url":"https://..."}}'` |
+| `webhook-del` | `do raw '{"protocol":"botapi","bot":"@my_bot","method":"deleteWebhook","params":{}}'` |
+
+### BotFather Conversation
+
+Protocol value: `"bf"` — sends text to BotFather (BOTFATHER_ID = 93372553)
+Reference: https://t.me/botfather
+
+| `do` command | `do raw` equivalent |
+|-------------|---------------------|
+| `bot-create` | `do raw '{"protocol":"bf","method":"/newbot"}'` *(multi-step)* |
+| `bot-delete` | `do raw '{"protocol":"bf","method":"/deletebot"}'` *(multi-step)* |
+| `bot-token` | `do raw '{"protocol":"bf","method":"/token"}'` *(multi-step)* |
+| `bot-photo` (via BF) | `do raw '{"protocol":"bf","method":"/setuserpic"}'` *(multi-step)* |
 
 ## Config
 

@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.0 (2026-07-26)
+
+### Production hardening: type_hints, autosave refactor, dead code removal
+
+- **`raw` command — type_hints now functional:** Wire `payload.type_hints` into mtproto handler (client.py:1648-1668) — wraps string params in Telethon TLObject types before passing to request constructor. Double-try pattern handles both value-arg types (`InputUser(id=123)`) and marker types (`InputPrivacyKeyStatusTimestamp()`).
+- **Autosave dir extracted to constant:** `TG_PROXY_AUTOSAVE_DIR` at top of cli.py — both usages (execute + _write_and_display) now reference the constant.
+- **Autosave naming `last_` removed:** Files now `{action}_{timestamp}.json` instead of `last_{action}.json` (both paths).
+- **Dead code purged:** `autosave_output()` removed from display.py — was defined but never called, used old `last_` format.
+- **Verified in production:** `help.getNearestDc` ✅ + `account.getPrivacy` with `InputPrivacyKeyStatusTimestamp` ✅ — 2 real tmux+HITL executions, both passed.
+- **Cleaner imports:** `from datetime import datetime` moved to global imports (top of cli.py).
+
 ## 1.0.0 (2026-07-25)
 
 ### Major refactoring — complete rewrite as tg-proxy

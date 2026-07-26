@@ -12,7 +12,10 @@ Admin is ALWAYS JSON. 'do' defaults to JSON, can switch to table.
 import asyncio
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
+
+TG_PROXY_AUTOSAVE_DIR = Path("/tmp/tg-proxy-autosave")
 
 import typer
 from pydantic import ValidationError
@@ -50,6 +53,7 @@ from .models import (
     FolderListPayload,
     FolderSetPayload,
     OutputMeta,
+    RawPayload,
     UpdatesPayload,
     WebhookDelPayload,
     WebhookGetPayload,
@@ -62,6 +66,8 @@ app = typer.Typer(
     add_completion=False,
 )
 app_admin = typer.Typer(help="Admin commands: setup, status.")
+
+
 app_do = typer.Typer(
     help="RPC actions: bot-list, bot-info, bot-token, bot-create, …",
     add_completion=False,
@@ -159,6 +165,7 @@ def _do_help_callback(value: bool = True):
             "chat-delete": TgClient.chat_delete,
             "chat-delete-messages": TgClient.chat_delete_messages,
             "bot-photo": TgClient.bot_photo,
+            "raw": TgClient.raw,
             "folder-list": TgClient.folder_list,
             "folder-set": TgClient.folder_set,
             "folder-delete": TgClient.folder_delete,
@@ -278,9 +285,8 @@ def _make_rpc(action_func, PayloadClass, hitl: bool = False):
             await client.close()
 
         # Autosave to /tmp
-        tmp_dir = Path("/tmp/tg-proxy-autosave")
-        tmp_dir.mkdir(parents=True, exist_ok=True)
-        autosave_path = tmp_dir / f"last_{action_func.__name__.replace('_', '-')}.json"
+        TG_PROXY_AUTOSAVE_DIR.mkdir(parents=True, exist_ok=True)
+        autosave_path = TG_PROXY_AUTOSAVE_DIR / f"{action_func.__name__.replace('_', '-')}_{datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
         await asyncio.to_thread(_dump_json_sync, autosave_path, result)
 
         # Handle output file
@@ -931,9 +937,8 @@ def _write_and_display(
         inner = result.get("data")
         if isinstance(inner, dict) and "meta" in inner and "data" in inner:
             result = inner
-    tmp_dir = Path("/tmp/tg-proxy-autosave")
-    tmp_dir.mkdir(parents=True, exist_ok=True)
-    autosave_path = tmp_dir / f"last_{action_name}.json"
+    TG_PROXY_AUTOSAVE_DIR.mkdir(parents=True, exist_ok=True)
+    autosave_path = TG_PROXY_AUTOSAVE_DIR / f"{action_name}_{datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
     with open(autosave_path, "w") as f:
         json.dump(result, f, indent=2, default=str)
     if output_file:
@@ -945,6 +950,33 @@ def _write_and_display(
     else:
         console.print(f"[dim]💾 Autosave: {autosave_path}[/dim]")
     output_result(result, format=fmt)
+
+
+@app_do.command("raw", help=get_full_help(TgClient.raw))
+def do_raw(
+    payload: str = typer.Argument(
+        ...,
+        help='JSON: {"method":"...","params":{...},"protocol":"mtproto|botapi|bf","bot":"@bot"} or file.',
+    ),
+    output_file: str | None = OUTPUT_FILE_OPT,
+    fmt: str = FORMAT_OPT,
+):
+    """Execute ANY Telegram operation via raw method call (HITL)."""
+    params = parse_payload(payload)
+    validated = RawPayload(**params)
+    client = get_client()
+    try:
+        data = run_async(client.raw(validated))
+        result = {
+            "meta": OutputMeta(status="ok", comment="").model_dump(),
+            "data": data,
+        }
+    except (TgProxyError, ValidationError) as e:
+        print_error(str(e))
+        sys.exit(1)
+    finally:
+        run_async(client.close())
+    _write_and_display(result, output_file, fmt, "raw")
 
 
 def _close_client(client: TgClient):

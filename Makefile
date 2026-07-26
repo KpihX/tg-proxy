@@ -22,12 +22,16 @@ help: ## Show help
 
 # ─── Quality ───
 
-check: ## Run all checks (ruff lint+fix + ruff format + py_compile + pyright + pytest)
+check: smoke ## Run all checks (ruff lint+fix + ruff format + py_compile + pyright + pytest + smoke)
 	@$(UV) run ruff check --fix $(PKG_DIR)/
 	@$(UV) run ruff format $(PKG_DIR)/
 	@$(PYTHON) -m py_compile $(PY_FILES)
 	@$(UV) run pyright $(PKG_DIR)/
 	@$(PYTHON) -m pytest tests/ -v
+
+smoke: ## Smoke test — CLI registration integrity (tg-proxy do --help)
+	@$(UV) tool run --from . tg-proxy do --help > /dev/null 2>&1 || (echo "❌ CLI smoke test failed"; exit 1)
+	@echo "✅ CLI smoke test passed"
 
 # ─── Install / Uninstall (uv tool) ───
 
@@ -61,9 +65,11 @@ uv-publish: uv-build ## Publish to PyPI
 # ─── Git ───
 
 git-push: ## Push to both gitlab and github
-	@git push github main
-	@git push gitlab main
+	@git push github master
+	@git push gitlab master
 	@echo "✅ Pushed to github + gitlab"
+
+push: git-push ## Alias for git-push
 
 git-install-hooks: ## Install pre-commit hook
 	@echo "#!/bin/sh\nmake check" > .git/hooks/pre-commit

@@ -42,6 +42,7 @@ from .models import (
     FolderDeletePayload,
     FolderListPayload,
     FolderSetPayload,
+    RawPayload,
     UpdatesPayload,
     WebhookDelPayload,
     WebhookGetPayload,
@@ -50,9 +51,10 @@ from .models import (
 
 TG_DATA_DIR = Path.home() / ".config" / "tg-proxy"
 
+BOTFATHER_ID = 93372553
 BF_NOTE = (
     "You MUST check BotFather chat even if there is no error:\n"
-    '  tg-proxy do chat-read \'{"chat":93372553,"limit":5}\'\n'
+    '  tg-proxy do chat-read \'{"chat":BOTFATHER_ID,"limit":5}\'\n'
     "to ensure the process was successful ! if error discuss directly with bot father !"
 )
 
@@ -130,11 +132,11 @@ class TgClient:
     async def _bot_token(self, bot_username: str) -> str:
         """Get a bot token via BotFather Telethon interaction."""
         client = await self._telethon()
-        await client.send_message(93372553, "/token")
+        await client.send_message(BOTFATHER_ID, "/token")
         await asyncio.sleep(2)
-        await client.send_message(93372553, f"@{bot_username}")
+        await client.send_message(BOTFATHER_ID, f"@{bot_username}")
         await asyncio.sleep(2)
-        async for msg in client.iter_messages(93372553, limit=5):
+        async for msg in client.iter_messages(BOTFATHER_ID, limit=5):
             if msg.message and ("token" in msg.message.lower() or ":" in msg.message):
                 lines = msg.message.strip().split("\n")
                 for line in lines:
@@ -445,12 +447,12 @@ class TgClient:
         written = []
         for username in payload.bots:
             clean = username.lstrip("@")
-            await client_send(c, 93372553, "/token")
+            await client_send(c, BOTFATHER_ID, "/token")
             await asyncio.sleep(2)
-            await client_send(c, 93372553, f"@{clean}")
+            await client_send(c, BOTFATHER_ID, f"@{clean}")
             await asyncio.sleep(2)
             token = ""
-            async for msg in c.iter_messages(93372553, limit=5):
+            async for msg in c.iter_messages(BOTFATHER_ID, limit=5):
                 if msg.message:
                     import re
 
@@ -473,7 +475,7 @@ class TgClient:
 
     async def _bf_response(self, c) -> str:
         """Read the latest BotFather response message text."""
-        msgs = await c.get_messages(93372553, limit=1)
+        msgs = await c.get_messages(BOTFATHER_ID, limit=1)
         if msgs:
             return msgs[0].text or ""
         return ""
@@ -515,7 +517,7 @@ class TgClient:
         ) -> str | None:
             """Send message to BotFather, wait, read response, check for errors.
             Returns the response text if OK, raises TgProxyError if error keyword found."""
-            await c.send_message(93372553, msg)
+            await c.send_message(BOTFATHER_ID, msg)
             await asyncio.sleep(3)
             resp = await self._bf_response(c)
             if err_keywords:
@@ -574,7 +576,7 @@ class TgClient:
                     bot_status["error"] = "BotFather rejected the username"
                     bot_status["note"] = (
                         BF_NOTE
-                        + '\nIf the error persists, reply to BotFather manually:\n  tg-proxy do chat-read \'{"chat":93372553,"limit":10}\''
+                        + '\nIf the error persists, reply to BotFather manually:\n  tg-proxy do chat-read \'{"chat":BOTFATHER_ID,"limit":10}\''
                     )
                     results.append(bot_status)
                     continue
@@ -621,7 +623,7 @@ class TgClient:
                 bot_status["error"] = str(e)
                 bot_status["note"] = (
                     BF_NOTE
-                    + '\nIf the error persists, use chat mode:\n  tg-proxy do chat-send \'{"to":93372553,"message":"/command"}\'\n  tg-proxy do chat-read \'{"chat":93372553,"limit":10}\''
+                    + '\nIf the error persists, use chat mode:\n  tg-proxy do chat-send \'{"to":BOTFATHER_ID,"message":"/command"}\'\n  tg-proxy do chat-read \'{"chat":BOTFATHER_ID,"limit":10}\''
                 )
                 results.append(bot_status)
         return results
@@ -655,11 +657,11 @@ class TgClient:
         for username in payload.bots:
             clean = username.lstrip("@")
             try:
-                await client_send(c, 93372553, "/deletebot")
+                await client_send(c, BOTFATHER_ID, "/deletebot")
                 await asyncio.sleep(2)
-                await client_send(c, 93372553, f"@{clean}")
+                await client_send(c, BOTFATHER_ID, f"@{clean}")
                 await asyncio.sleep(3)
-                await client_send(c, 93372553, "Yes, I am totally sure.")
+                await client_send(c, BOTFATHER_ID, "Yes, I am totally sure.")
                 await asyncio.sleep(2)
                 deleted.append(clean)
             except (TypeError, ValueError, OSError, AttributeError):
@@ -782,7 +784,7 @@ class TgClient:
         Examples:
             - List all conversations:
                 `tg-proxy do chat-list`
-                → [{"id":93372553,"name":"BotFather","type":"user","unread":9},...]
+                → [{"id":BOTFATHER_ID,"name":"BotFather","type":"user","unread":9},...]
             - List only private chats:
                 `tg-proxy do chat-list '{"type":"user"}'`
                 → [{"id":...}] (filtered user chats only)
@@ -849,14 +851,14 @@ class TgClient:
 
         Examples:
             - Read recent messages from BotFather:
-                `tg-proxy do chat-read '{"chat":93372553,"limit":5}'`
-                → [{"id":9095,"date":"2026-07-23","from_id":93372553,"text":"Use this token:..."}]
+                `tg-proxy do chat-read '{"chat":BOTFATHER_ID,"limit":5}'`
+                → [{"id":9095,"date":"2026-07-23","from_id":BOTFATHER_ID,"text":"Use this token:..."}]
             - Search for token messages:
-                `tg-proxy do chat-read '{"chat":93372553,"search":"token"}'`
+                `tg-proxy do chat-read '{"chat":BOTFATHER_ID,"search":"token"}'`
                 → [{"id":9095,"text":"Here is your token:"}] (searched)
             - Read from a file payload:
                 `tg-proxy do chat-read ./read_query.json`
-                → [{"id":9095,"date":"2026-07-23","from_id":93372553,"text":"Use this token:..."}]
+                → [{"id":9095,"date":"2026-07-23","from_id":BOTFATHER_ID,"text":"Use this token:..."}]
         """
         c = await self._telethon()
         entity = await c.get_input_entity(payload.chat)
@@ -902,8 +904,8 @@ class TgClient:
                 `tg-proxy do chat-send '{"to":"@BotFather","message":"/start"}'`
                 → {"message_id":51,"chat":"@BotFather"}
             - Send to a chat by ID:
-                `tg-proxy do chat-send '{"to":93372553,"message":"Hi"}'`
-                → {"message_id":52,"chat":"93372553"}
+                `tg-proxy do chat-send '{"to":BOTFATHER_ID,"message":"Hi"}'`
+                → {"message_id":52,"chat":"BOTFATHER_ID"}
         """
         c = await self._telethon()
         entity = await c.get_input_entity(payload.to)
@@ -972,7 +974,7 @@ class TgClient:
                 `tg-proxy do chat-download '{"chat":"@chat","message_ids":[42],"out":"/tmp/dl"}'`
                 → {"downloaded":[{"message_id":42,"name":"photo.jpg","path":"/tmp/dl/photo.jpg","size":12345}]}
             - Download multiple files:
-                `tg-proxy do chat-download '{"chat":93372553,"message_ids":[42,43],"out":"/tmp"}'`
+                `tg-proxy do chat-download '{"chat":BOTFATHER_ID,"message_ids":[42,43],"out":"/tmp"}'`
                 → {"downloaded":[{"message_id":42,"name":"a.jpg","path":"/tmp/a.jpg","size":100},{"message_id":43,"name":"b.jpg"}]}
             - Download from a file payload:
                 `tg-proxy do chat-download ./download.json`
@@ -1044,8 +1046,8 @@ class TgClient:
                 `tg-proxy do chat-delete-messages '{"chat":"@chat","message_ids":[42]}'`
                 → {"chat":"@chat","deleted_count":1,"revoke":true}
             - Delete multiple messages:
-                `tg-proxy do chat-delete-messages '{"chat":93372553,"message_ids":[42,43,44]}'`
-                → {"chat":93372553,"deleted_count":3,"revoke":true}
+                `tg-proxy do chat-delete-messages '{"chat":BOTFATHER_ID,"message_ids":[42,43,44]}'`
+                → {"chat":BOTFATHER_ID,"deleted_count":3,"revoke":true}
         """
         c = await self._telethon()
         entity = await c.get_input_entity(payload.chat)
@@ -1507,6 +1509,261 @@ class TgClient:
                 },
             )
         return {"detail": "Webhook deleted", "ok": result.get("ok", False)}
+
+    # ─── do raw (generic Telegram gateway) ───
+
+    @require_approval()
+    async def raw(self, payload: RawPayload) -> dict:
+        """
+        Execute ANY Telegram operation via raw method call.
+
+        Generic gateway covering all three Telegram interaction protocols.
+        Requires Human-in-the-Loop approval. The raw response from Telegram
+        is returned as-is — no tg-proxy wrapping.
+
+        ── Protocols ────────────────────────────────────────────────────────────
+
+        1. MTProto (telethon.tl.functions.*) — "mtproto"
+           Uses Telethon's full MTProto API. Can call ANY function from
+           Telegram's Type Language schema, exposing the full MTProto API.
+           Methods follow the pattern: `service.methodName`.
+           The method name is dynamically resolved to the corresponding
+           Telethon Request class at runtime.
+           Reference: https://docs.telethon.dev/en/stable/modules/client.html
+                     https://core.telegram.org/schema
+           Examples of what you can do:
+           • messages.sendMessage — send a message (like our `chat-send`)
+           • messages.getMessages — read messages (like our `chat-read`)
+           • channels.joinChannel — join a channel
+           • users.getFullUser — get user details (like our `bot-info`)
+           • bots.getBotInfo — get bot info
+           • account.updateProfile — update your own profile
+           • messages.getDialogs — list conversations (like our `chat-list`)
+           Needs: method name in dotted notation, params matching the TL schema.
+
+        2. Bot HTTP API — "botapi"
+           Calls the official Telegram Bot API via HTTP POST.
+           All methods from https://core.telegram.org/bots/api are available.
+           Requires a bot token (stored in .env) — the `bot` field specifies
+           which bot to use (e.g. "@my_bot").
+           Examples of what you can do:
+           • sendMessage — send a message as a bot (like our `bot-send`)
+           • sendPhoto — send a photo as a bot (like our `bot-send-file`)
+           • getUpdates — read bot's inbox (like our `updates`)
+           • setMyDescription — set bot description (like BotFather /setdescription)
+           • setMyName — change bot name (like BotFather /setname)
+           • getWebhookInfo — get webhook config (like our `webhook-get`)
+           • setWebhook — set webhook URL (like our `webhook-set`)
+           • deleteWebhook — delete webhook (like our `webhook-del`)
+           Needs: method name as in Bot API docs, JSON params, bot @username.
+
+        3. BotFather Conversation — "bf"
+           Sends any text command directly to BotFather and returns his response.
+           This is the same conversation protocol used by `bot-create`, `bot-delete`,
+           `bot-token`, and `/setuserpic`.
+           References: https://t.me/botfather
+           Examples of what you can do:
+           • /mybots — list all your bots (like our `bot-list`)
+           • /setname — change a bot's name
+           • /setdescription — change a bot's description
+           • /setabouttext — change a bot's about section
+           • /setuserpic — change a bot's profile photo
+           • /setcommands — change a bot's command list
+           • /setjoingroups — toggle group joining
+           • /setinline — toggle inline mode
+           Needs: any BotFather command as the method, no params.
+
+        Parameters:
+            - method (str): Method name.
+                mtproto: 'messages.sendMessage', 'channels.joinChannel', etc.
+                botapi:  'sendMessage', 'getMe', 'setMyDescription', etc.
+                bf:      '/mybots', '/setname', '/setdescription', etc.
+            - params (dict): Parameters for the method.
+            - protocol (str): 'mtproto', 'botapi', or 'bf' (default: mtproto).
+            - bot (str | None): Bot @username (required for botapi).
+
+        Examples:
+            ── MTProto (3 examples) ──
+
+            - Send a message as yourself (same as `chat-send`):
+                `tg-proxy do raw '{"method":"messages.sendMessage","params":{"peer":"@user","message":"Hi!"},"protocol":"mtproto"}'`
+                → {"protocol":"mtproto","method":"messages.sendMessage","result":"..."}
+
+            - Get your own user info (same as `admin status`):
+                `tg-proxy do raw '{"method":"users.getFullUser","params":{"id":"me"},"protocol":"mtproto"}'`
+                → {"protocol":"mtproto","method":"users.getFullUser","result":"..."}
+
+            - List recent messages from BotFather (same as `chat-read`):
+                `tg-proxy do raw '{"method":"messages.getHistory","params":{"peer":93372553,"limit":5},"protocol":"mtproto"}'`
+                → {"protocol":"mtproto","method":"messages.getHistory","result":"..."}
+
+            ── Bot API (3 examples) ──
+
+            - Send a message as a bot (same as `bot-send`):
+                `tg-proxy do raw '{"method":"sendMessage","params":{"chat_id":93372553,"text":"Hello"},"protocol":"botapi","bot":"@my_bot"}'`
+                → {"protocol":"botapi","method":"sendMessage","result":{"ok":true,...}}
+
+            - Get bot webhook info (same as `webhook-get`):
+                `tg-proxy do raw '{"method":"getWebhookInfo","params":{},"protocol":"botapi","bot":"@my_bot"}'`
+                → {"protocol":"botapi","method":"getWebhookInfo","result":{"ok":true,...}}
+
+            - Set bot description (same as BotFather `/setdescription`):
+                `tg-proxy do raw '{"method":"setMyDescription","params":{"description":"My awesome bot"},"protocol":"botapi","bot":"@my_bot"}'`
+                → {"protocol":"botapi","method":"setMyDescription","result":{"ok":true,...}}
+
+            ── BotFather (3 examples) ──
+
+            - List all your bots (same as `bot-list`):
+                `tg-proxy do raw '{"method":"/mybots","protocol":"bf"}'`
+                → {"protocol":"bf","command":"/mybots","response":"..."}
+
+            - Change a bot's name:
+                `tg-proxy do raw '{"method":"/setname","protocol":"bf"}'`
+                → {"protocol":"bf","command":"/setname","response":"Choose a bot to change name."}
+
+            - Get a bot's API token (same as `bot-token`):
+                `tg-proxy do raw '{"method":"/token","protocol":"bf"}'`
+                → {"protocol":"bf","command":"/token","response":"Choose a bot to get token."}
+        """
+        c = await self._telethon()
+
+        if payload.protocol == "mtproto":
+            # Dynamic MTProto method resolution
+            import importlib
+
+            parts = payload.method.split(".")
+            module_path = "telethon.tl.functions." + ".".join(parts[:-1])
+            raw_name = parts[-1]
+            # Convert to PascalCase: getPrivacy → GetPrivacy
+            if raw_name and raw_name[0].islower():
+                pascal = raw_name[0].upper() + raw_name[1:]
+            else:
+                pascal = raw_name
+            class_name = pascal if pascal.endswith("Request") else pascal + "Request"
+            try:
+                module = importlib.import_module(module_path)
+                request_class = getattr(module, class_name)
+            except (ImportError, AttributeError) as e:
+                return {"error": f"Unknown method '{payload.method}': {e}"}
+            # Apply type_hints: wrap string params in Telethon TLObject types
+            if payload.type_hints:
+                import importlib as _il
+                _tl_types = _il.import_module("telethon.tl.types")
+                converted = dict(payload.params)
+                for pname, tname in payload.type_hints.items():
+                    if pname in converted:
+                        try:
+                            tl_class = getattr(_tl_types, tname)
+                            # Some TLObjects take no args (e.g. InputPrivacyKeyStatus),
+                            # others take the value as positional arg
+                            try:
+                                converted[pname] = tl_class(converted[pname])
+                            except TypeError:
+                                converted[pname] = tl_class()
+                        except AttributeError as _e:
+                            return {"error": f"Unknown TLObject type '{tname}' for '{pname}'"}
+                params_for_request = converted
+            else:
+                params_for_request = payload.params
+            request_obj = request_class(**params_for_request)  # type: ignore[reportCallIssue]
+            result = await c(request_obj)
+            return {
+                "protocol": "mtproto",
+                "method": payload.method,
+                "result": str(result),
+            }
+
+        elif payload.protocol == "botapi":
+            # Bot API HTTP call
+            if not payload.bot:
+                return {"error": "bot parameter is required for botapi protocol"}
+
+            token_key = f"{payload.bot.lstrip('@').upper()}_TOKEN"
+            token = _read_token_from_env(token_key)
+            if not token:
+                return {"error": f"Token for {payload.bot} not found"}
+            import httpx
+
+            url = f"https://api.telegram.org/bot{token}/{payload.method.lstrip('/')}"
+            if payload.upload_files:
+                from pathlib import Path as P
+
+                files = []
+                for fp in payload.upload_files:
+                    fpath = P(fp)
+                    if not fpath.exists():
+                        return {"error": f"File not found: {fp}"}
+                    files.append(
+                        (
+                            "document",
+                            (
+                                fpath.name,
+                                fpath.read_bytes(),
+                                "application/octet-stream",
+                            ),
+                        )
+                    )
+                data = {}
+                for k, v in (payload.params or {}).items():
+                    import json as _json
+
+                    data[k] = _json.dumps(v) if isinstance(v, (list, dict)) else str(v)
+                async with httpx.AsyncClient(timeout=60) as hc:
+                    resp = await hc.post(url, data=data, files=files)
+                return {
+                    "protocol": "botapi",
+                    "method": payload.method,
+                    "result": resp.json(),
+                }
+            else:
+                async with httpx.AsyncClient() as hc:
+                    resp = await hc.post(url, json=payload.params or {})
+                return {
+                    "protocol": "botapi",
+                    "method": payload.method,
+                    "result": resp.json(),
+                }
+
+        elif payload.protocol == "bf":
+            # BotFather conversation
+            if payload.steps:
+                await c.send_message(BOTFATHER_ID, payload.method)
+                await asyncio.sleep(2)
+                for step in payload.steps:
+                    if step == "__photo__":
+                        if not payload.photo:
+                            return {"error": "__photo__ step requires 'photo' field"}
+                        await c.send_file(BOTFATHER_ID, payload.photo)
+                    else:
+                        await c.send_message(BOTFATHER_ID, step)
+                    await asyncio.sleep(2)
+                from typing import cast
+
+                final = cast(list, await c.get_messages(BOTFATHER_ID, limit=1))
+                final_text = final[0].text if final else "(no response)"
+                return {
+                    "protocol": "bf",
+                    "command": payload.method,
+                    "steps": payload.steps,
+                    "final_response": final_text,
+                }
+            else:
+                await c.send_message(BOTFATHER_ID, payload.method)
+                await asyncio.sleep(2)
+                from typing import cast
+
+                bf_msgs = cast(list, await c.get_messages(BOTFATHER_ID, limit=1))
+                response_text = bf_msgs[0].text if bf_msgs else "(no response)"
+                return {
+                    "protocol": "bf",
+                    "command": payload.method,
+                    "response": response_text,
+                }
+
+        else:
+            return {
+                "error": f"Unknown protocol '{payload.protocol}'. Use 'mtproto', 'botapi', or 'bf'."
+            }
 
     # ─── Internal helpers ───
 

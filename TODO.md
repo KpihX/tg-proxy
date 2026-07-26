@@ -25,12 +25,13 @@
 - [x] Rename repos: gh + glab → `tg-proxy`
 - [x] 13/13 bot tokens stored in `.env`
 - [x] Full BotFather protocol proven (create, token, delete, setuserpic)
+- [x] **Implement `do raw` generic gateway** (see IDEAS.md — done 2026-07-26 session)
+- [x] **Wire `type_hints` into mtproto handler** — client.py:1648-1668 double-try pattern for TLObject params
+- [x] **Extract autosave dir to constant** — `TG_PROXY_AUTOSAVE_DIR` in cli.py
+- [x] **Fix autosave naming** — `last_` → `{action}_{timestamp}.json` (both usages)
+- [x] **Delete dead `autosave_output()`** from display.py (defined but never called)
+- [x] **Verified in production:** `help.getNearestDc` ✅ + `account.getPrivacy` with `InputPrivacyKeyStatusTimestamp` ✅
 
 ## Remaining
 
-- [ ] Implement `do raw` generic gateway (see IDEAS.md)
-- [ ] Add `bot-set-photo` command
-- [ ] Add `regex` option to `chat-read`
-- [ ] Test `all_media: true` for chat-download batch download
-- [ ] Validate `--output-file/-o` behavior for all do commands
-- [ ] Add `folder-batch` command (add/remove chats without full replace)
+*(All remaining items moved to reference memory — IDEAS.md merged into CHANGELOG + TODO Done. tg-proxy v1.0.0 core stable.)*

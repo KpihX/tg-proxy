@@ -2,8 +2,6 @@
 Rich output helpers for tg-proxy.
 """
 
-import json
-from pathlib import Path
 from typing import Any
 
 from rich.console import Console
@@ -71,12 +69,3 @@ def print_meta(meta: dict):
         )
     )
 
-
-def autosave_output(output_dir: str | Path, action: str, data: Any):
-    """Autosave raw JSON to /tmp/tg-proxy/."""
-    output_dir = Path(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-    path = output_dir / f"last_{action.replace('-', '_')}.json"
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2, default=str)
-    console.print(f"[dim]💾 Autosave: {path}[/dim]")

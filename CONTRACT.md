@@ -105,7 +105,7 @@ tg-proxy
        │
        ▼
 ┌──────────────────────────────┐
-│  src/tg/                     │
+│  src/tg_proxy/               │
 │  ├── cli.py                  │  ONE Typer app: `do` + `admin` sub-typers
 │  ├── client.py               │  TgClient — Telethon + MTProto + Bot API
 │  ├── models.py               │  Pydantic models (ts_proxy style)
@@ -281,6 +281,85 @@ Examples:
 **Rationale:** NOT needed anywhere. The web UI comment is optional.
 
 **Exception:** `tg-proxy admin bot create` via BotFather could benefit from a `--confirm` flag, but inline typer prompt is sufficient.
+
+---
+
+## Protocol Categories & `do raw` Equivalents
+
+All non-`raw` `do` commands use one of the three Telegram protocols.
+Each has a corresponding `do raw` incantation using the generic gateway.
+
+### 1. MTProto (Telethon TL Functions)
+
+**Backend:** Telethon `client(functions.some.Request(params))`
+
+| `do` command | What it does | `do raw` equivalent |
+|-------------|--------------|---------------------|
+| `bot-list` | List owned bots | `do raw '{"protocol":"mtproto","method":"bots.getAdminedBots"}'` |
+| `bot-info` | Bot details | `do raw '{"protocol":"mtproto","method":"bots.getBotInfo","params":{"bot":"@bot"}}'` |
+| `chat-list` | List conversations | `do raw '{"protocol":"mtproto","method":"messages.getDialogs","params":{"limit":30}}'` |
+| `chat-read` | Read messages | `do raw '{"protocol":"mtproto","method":"messages.getHistory","params":{"peer":BOTFATHER_ID,"limit":5}}'` |
+| `chat-send` | Send as user | `do raw '{"protocol":"mtproto","method":"messages.sendMessage","params":{"peer":"@user","message":"Hi"}}'` |
+| `chat-download` | Download media | `do raw '{"protocol":"mtproto","method":"messages.getMessages","params":{"id":[42]}}'` |
+| `chat-delete` | Delete conversation | `do raw '{"protocol":"mtproto","method":"messages.deleteHistory","params":{"peer":"@chat","revoke":true}}'` |
+| `chat-delete-messages` | Delete specific msgs | `do raw '{"protocol":"mtproto","method":"messages.deleteMessages","params":{"id":[42,43]}}'` |
+| `folder-list` | List folders | `do raw '{"protocol":"mtproto","method":"messages.getDialogFilters"}'` |
+| `folder-set` | Create/update folder | `do raw '{"protocol":"mtproto","method":"messages.updateDialogFilter","params":{...}}'` |
+| `folder-delete` | Delete folder | `do raw '{"protocol":"mtproto","method":"messages.updateDialogFilter","params":{"id":12}}'` *(filter=null)* |
+| `chat-move` | Move chat between folders | *Combination of `getDialogFilters` + `updateDialogFilter`* |
+| `admin status` | Your identity | `do raw '{"protocol":"mtproto","method":"users.getFullUser","params":{"id":"me"}}'` |
+| `bot-photo` | Download bot photo | `do raw '{"protocol":"mtproto","method":"photos.getUserPhotos","params":{"user_id":"@bot"}}'` |
+
+### `do raw` — type_hints
+
+For MTProto calls with typed parameters, the `raw` command accepts an optional `type_hints` dict that maps string parameter names to their Telethon TLObject type constructors:
+
+```json
+{
+  "protocol": "mtproto",
+  "method": "account.getPrivacy",
+  "params": {"key": "InputPrivacyKeyStatusTimestamp"},
+  "type_hints": {"key": "InputPrivacyKeyStatusTimestamp"}
+}
+```
+
+The type_hints are resolved via a double-try pattern: first tried as a value-arg constructor (`InputPrivacyKeyStatusTimestamp(key=...)`), then as a no-arg marker type (`InputPrivacyKeyStatusTimestamp()`). This handles both parameterized TLObjects and flag/enum types.
+
+Autosave: every `do raw` execution autosaves to `/tmp/tg-proxy-autosave/{action}_{timestamp}.json`.
+
+### 2. Bot HTTP API
+
+**Backend:** `POST https://api.telegram.org/bot{token}/{method}`
+
+| `do` command | What it does | `do raw` equivalent |
+|-------------|--------------|---------------------|
+| `bot-send` | Send as bot | `do raw '{"protocol":"botapi","bot":"@my_bot","method":"sendMessage","params":{"chat_id":BOTFATHER_ID,"text":"Hi"}}'` |
+| `bot-send-file` | Send file as bot | `do raw '{"protocol":"botapi","bot":"@my_bot","method":"sendDocument","params":{"chat_id":BOTFATHER_ID,"document":"..."}}'` |
+| `updates` | Read bot inbox | `do raw '{"protocol":"botapi","bot":"@my_bot","method":"getUpdates","params":{}}'` |
+| `webhook-get` | Get webhook config | `do raw '{"protocol":"botapi","bot":"@my_bot","method":"getWebhookInfo","params":{}}'` |
+| `webhook-set` | Set webhook URL | `do raw '{"protocol":"botapi","bot":"@my_bot","method":"setWebhook","params":{"url":"https://..."}}'` |
+| `webhook-del` | Delete webhook | `do raw '{"protocol":"botapi","bot":"@my_bot","method":"deleteWebhook","params":{}}'` |
+
+### 3. BotFather Conversation
+
+**Backend:** Sending text messages to BotFather (`BOTFATHER_ID = 93372553`)
+
+| `do` command | What it does | `do raw` equivalent |
+|-------------|--------------|---------------------|
+| `bot-create` | Create a new bot | `do raw '{"protocol":"bf","method":"/newbot"}'` *(multi-step, needs follow-up)* |
+| `bot-delete` | Delete a bot | `do raw '{"protocol":"bf","method":"/deletebot"}'` *(multi-step)* |
+| `bot-token` | Get bot API token | `do raw '{"protocol":"bf","method":"/token"}'` *(multi-step)* |
+| `bot-photo` | Set bot photo (via BF) | `do raw '{"protocol":"bf","method":"/setuserpic"}'` *(multi-step)* |
+
+### 4. Hybrid (Multiple Protocols)
+
+Some commands combine protocols internally:
+- **`admin setup`** — MTProto (Telethon login) + file write
+- **`bot-create`** — BotFather conversation (MTProto) + Bot API calls
+- **`bot-delete`** — BotFather conversation (MTProto)
+- **`bot-token`** — BotFather conversation (MTProto) + file append
+
+---
 
 ---
 

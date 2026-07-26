@@ -14,6 +14,9 @@ tg-proxy is a Telegram administrative proxy — a single binary with two namespa
 | `src/tg_proxy/client.py` | TgClient — Telethon + MTProto + Bot API |
 | `src/tg_proxy/models.py` | Pydantic RPC payloads |
 | `src/tg_proxy/config.py` | .env loader (~/.config/tg-proxy/.env) |
+| `src/tg_proxy/display.py` | Rich output helpers, table formatting |
+| `src/tg_proxy/logger.py` | Rotating file logger |
+| `src/tg_proxy/exceptions.py` | Base exception class |
 | `src/tg_proxy/hitl.py` | HITL web UI |
 | `src/tg_proxy/doc.py` | Dynamic --help injection |
 | `pyproject.toml` | Single entry point: tg-proxy = tg_proxy.cli:app |
