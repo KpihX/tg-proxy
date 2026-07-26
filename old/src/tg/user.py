@@ -219,6 +219,26 @@ def delete_message(chat: str | int, message_id: int) -> None:
     run(_delete_message(chat, message_id))
 
 
+async def _delete_chat(chat: str | int) -> None:
+    from telethon.tl.functions.channels import DeleteChannelRequest
+    from telethon.tl.functions.messages import DeleteChatRequest
+    from telethon.tl.types import Channel, Chat
+    client = _get_client()
+    async with client:
+        entity = await client.get_entity(chat)
+        if isinstance(entity, Channel):
+            await client(DeleteChannelRequest(channel=entity))
+        elif isinstance(entity, Chat):
+            await client(DeleteChatRequest(chat_id=entity.id))
+        else:
+            # For users/DMs, there's no "delete chat" in the same way, but we can delete history
+            await client.delete_dialog(entity)
+
+
+def delete_chat(chat: str | int) -> None:
+    run(_delete_chat(chat))
+
+
 async def _edit_message(chat: str | int, message_id: int, text: str) -> None:
     client = _get_client()
     async with client:
@@ -300,4 +320,12 @@ async def _action(chat: str | int, action: str) -> None:
 
 def send_action(chat: str | int, action: str) -> None:
     run(_action(chat, action))
+
+
+def _format_message(msg) -> dict:
+    return {
+        "id": msg.id,
+        "date": msg.date.strftime("%Y-%m-%d %H:%M") if msg.date else "",
+    }
+
 

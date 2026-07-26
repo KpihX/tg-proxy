@@ -439,6 +439,19 @@ def user_delete(
         _abort(str(e))
 
 
+@user_app.command("delete-chat")
+def user_delete_chat(
+    chat: Annotated[str, typer.Argument(help="Chat ID or @username.")],
+) -> None:
+    """Delete a chat, group, or channel."""
+    from tg import user as u
+    try:
+        u.delete_chat(chat)
+        display.success(f"Chat {chat} deleted.")
+    except RuntimeError as e:
+        _abort(str(e))
+
+
 @user_app.command("contacts")
 def user_contacts() -> None:
     """List your Telegram contacts."""
