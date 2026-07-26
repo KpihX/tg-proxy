@@ -68,4 +68,3 @@ def print_meta(meta: dict):
             border_style=color,
         )
     )
-

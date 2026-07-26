@@ -128,6 +128,24 @@ TG_API_HASH=df796e5e2c4f045ae51eba5de68335f7
 
 Created by `tg-proxy admin setup` (HITL web form).
 
+## Security
+
+The configuration directory and its files contain sensitive API credentials and a Telethon session file. Protect them after `tg-proxy admin setup`:
+
+```bash
+chmod 700 ~/.config/tg-proxy
+chmod 600 ~/.config/tg-proxy/.env ~/.config/tg-proxy/user.session
+```
+
+On first-time setup, verify the permissions:
+
+```bash
+ls -la ~/.config/tg-proxy/
+# drwx------  2 user user   4096 ...
+# -rw-------  1 user user    ... .env
+# -rw-------  1 user user    ... user.session
+```
+
 ## HITL
 
 Human-in-the-Loop via local web UI (port 1143). Sensitive operations open a browser page showing the payload for review, editing, and approval/rejection.
@@ -163,7 +181,9 @@ uv tool install .
 uv tool install --editable .
 ```
 
-### Docker
+### Docker (not yet tested)
+
+⚠️ The Docker build and runtime have not been end-to-end tested yet. Use `uv tool install` for production.
 
 ```bash
 make docker-build

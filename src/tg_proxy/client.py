@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 import httpx
-from telethon import TelegramClient, functions
+from telethon import TelegramClient, errors, functions
 from telethon.tl.types import (
     DialogFilterDefault,
     PeerChannel,
@@ -338,6 +338,19 @@ class TgClient:
                 except (TypeError, ValueError, OSError):
                     photo_info = {"has_photo": False}
 
+                # Fetch bot info (about, description) via GetBotInfoRequest
+                about = ""
+                description = ""
+                try:
+                    binfo = await c(
+                        functions.bots.GetBotInfoRequest(bot=bot, lang_code="")
+                    )
+                    about = getattr(binfo, "about", "") or ""
+                    description = getattr(binfo, "description", "") or ""
+                except (errors.RPCError, ValueError, TypeError, OSError) as exc:
+                    about = f"<error: {exc}>"
+                    description = f"<error: {exc}>"
+
                 out.append(
                     {
                         "id": bot.id,
@@ -347,6 +360,8 @@ class TgClient:
                         "photo_info": photo_info,
                         "bot_info_version": getattr(bot, "bot_info_version", 0),
                         "bot_can_edit": getattr(bot, "bot_can_edit", False),
+                        "about": about,
+                        "description": description,
                     }
                 )
             else:
@@ -1648,6 +1663,7 @@ class TgClient:
             # Apply type_hints: wrap string params in Telethon TLObject types
             if payload.type_hints:
                 import importlib as _il
+
                 _tl_types = _il.import_module("telethon.tl.types")
                 converted = dict(payload.params)
                 for pname, tname in payload.type_hints.items():
@@ -1661,7 +1677,9 @@ class TgClient:
                             except TypeError:
                                 converted[pname] = tl_class()
                         except AttributeError as _e:
-                            return {"error": f"Unknown TLObject type '{tname}' for '{pname}'"}
+                            return {
+                                "error": f"Unknown TLObject type '{tname}' for '{pname}'"
+                            }
                 params_for_request = converted
             else:
                 params_for_request = payload.params

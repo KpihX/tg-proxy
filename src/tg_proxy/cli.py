@@ -12,7 +12,7 @@ Admin is ALWAYS JSON. 'do' defaults to JSON, can switch to table.
 import asyncio
 import json
 import sys
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 TG_PROXY_AUTOSAVE_DIR = Path("/tmp/tg-proxy-autosave")
@@ -286,7 +286,10 @@ def _make_rpc(action_func, PayloadClass, hitl: bool = False):
 
         # Autosave to /tmp
         TG_PROXY_AUTOSAVE_DIR.mkdir(parents=True, exist_ok=True)
-        autosave_path = TG_PROXY_AUTOSAVE_DIR / f"{action_func.__name__.replace('_', '-')}_{datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
+        autosave_path = (
+            TG_PROXY_AUTOSAVE_DIR
+            / f"{action_func.__name__.replace('_', '-')}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.json"
+        )
         await asyncio.to_thread(_dump_json_sync, autosave_path, result)
 
         # Handle output file
@@ -938,7 +941,10 @@ def _write_and_display(
         if isinstance(inner, dict) and "meta" in inner and "data" in inner:
             result = inner
     TG_PROXY_AUTOSAVE_DIR.mkdir(parents=True, exist_ok=True)
-    autosave_path = TG_PROXY_AUTOSAVE_DIR / f"{action_name}_{datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S')}.json"
+    autosave_path = (
+        TG_PROXY_AUTOSAVE_DIR
+        / f"{action_name}_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.json"
+    )
     with open(autosave_path, "w") as f:
         json.dump(result, f, indent=2, default=str)
     if output_file:
